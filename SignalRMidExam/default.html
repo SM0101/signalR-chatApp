@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>SignalR Simple Chat</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="card">
+            <div class="card-header bg-dark text-light">
+                Let's Chat
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label id="userName" class="bg-light">Display Name:</label>
+                    <input type="hidden" class="form-control" id="displayname">
+
+                    <div class="row align-items-start">
+                        <div class="col-8">
+                            <input type="text" class="form-control" id="message" placeholder="Enter your message">
+                        </div>
+                        <div class="col-4">
+                            <label id="selected" for="fileInput" class="btn btn-primary">Select File Less then 60kb </label>
+                            <input type="file" id="fileInput" class="d-none">
+                        </div>
+                    </div>
+
+                    <input type="button" id="sendmessage" class="btn btn-success" value="Send">
+                </div>
+
+                <div class="container mt-5">
+                    <ul id="discussion" class="list-group list-group-flush">
+                   
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="Scripts/jquery-3.4.1.min.js"></script>
+    <script src="Scripts/jquery.signalR-2.4.3.min.js"></script>
+    <script src="signalr/hubs"></script>
+
+    <script type="text/javascript">
+        $(function () {
+            var chat = $.connection.chatHub;
+            var displayName = prompt('Enter your name:', '');
+            if (displayName) {
+                $('#displayname').val(displayName);
+                $('#userName').text('User: ' + displayName);
+                $('#userName').show();
+            }
+
+            $('#selected').click(function () {
+                $('#fileInput').change(function () {
+                    var fileName = $(this).val().split('\\').pop();
+                    $('#selected').text(fileName);
+                });
+            });
+
+            chat.client.broadcastMessage = function (name, message) {
+                var encodedName = $('<div />').text(name).html();
+                var encodedMsg = $('<div />').text(message).html();
+                $('#discussion').append('<li class="list-group-item border border-5"><strong>' + encodedName
+                    + ':</strong>&nbsp;&nbsp;' + encodedMsg + '</li>');
+            };
+
+            chat.client.broadcastFile = function (name, fileName, fileData) {
+                var encodedName = $('<div />').text(name).html();
+
+                if (isImageFile(fileName)) {
+                    var imageTag = '<img src="' + fileData + '" alt="' + fileName + '" style="max-width: 150px; max-height: 150px;" />';
+                    $('#discussion').append('<li class="list-group-item border border-5"><strong>' + encodedName + ':</strong>&nbsp;&nbsp;' + imageTag + '</li></br>');
+                } else {
+                    var downloadLink = '<a href="' + fileData + '" download="' + fileName + '">Download File</a>';
+                    $('#discussion').append('<li class="list-group-item border border-5"><strong>' + encodedName + ':</strong>&nbsp;&nbsp;' + downloadLink + '</li>');
+                }
+            };
+
+            function isImageFile(fileName) {
+                var regex = /\.(jpg|jpeg|png|gif)$/i;
+                return regex.test(fileName);
+            };
+
+            $('#sendmessage').click(function () {
+                var message = $('#message').val();
+                var fileInput = document.getElementById('fileInput');
+                var file = fileInput.files[0];
+                if (message) {
+                    chat.server.send($('#displayname').val(), message);
+                    $('#message').val('').focus();
+                }
+                if (file) {
+                    var reader = new FileReader();
+                    reader.onload = function (event) {
+
+                        var fileData = event.target.result;
+
+                        chat.server.shareFile($('#displayname').val(), file.name, fileData);
+                        $('#fileInput').val('')
+                    };
+                    reader.readAsDataURL(file);
+                    $('#selected').text('Select File Less then  60kb');
+                }
+            });
+          
+            $.connection.hub.start().done(function () {
+                $('#message').focus();
+            });
+        });
+    </script>
+</body>
+</html>
